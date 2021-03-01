@@ -68,8 +68,11 @@ class Categorical(nn.Module):
 
         self.linear = init_(nn.Linear(num_inputs, num_outputs))
 
+    def get_params(self, x):
+        return self.linear(x)
+
     def forward(self, x):
-        x = self.linear(x)
+        x = self.get_params(x)
         return FixedCategorical(logits=x)
 
 
@@ -83,7 +86,7 @@ class DiagGaussian(nn.Module):
         self.fc_mean = init_(nn.Linear(num_inputs, num_outputs))
         self.logstd = AddBias(torch.zeros(num_outputs))
 
-    def forward(self, x):
+    def get_params(self, x):
         action_mean = self.fc_mean(x)
 
         #  An ugly hack for my KFAC implementation.
@@ -92,6 +95,10 @@ class DiagGaussian(nn.Module):
             zeros = zeros.cuda()
 
         action_logstd = self.logstd(zeros)
+        return action_mean, action_logstd
+
+    def forward(self, x):
+        action_mean,  action_logstd = self.get_params(x)
         return FixedNormal(action_mean, action_logstd.exp())
 
 
@@ -104,6 +111,10 @@ class Bernoulli(nn.Module):
 
         self.linear = init_(nn.Linear(num_inputs, num_outputs))
 
-    def forward(self, x):
+    def get_params(self, x):
         x = self.linear(x)
+        return x
+
+    def forward(self, x):
+        x = self.get_params(x)
         return FixedBernoulli(logits=x)

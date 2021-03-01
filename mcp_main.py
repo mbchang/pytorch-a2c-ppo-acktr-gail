@@ -43,15 +43,35 @@ def main():
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
 
-    actor_critic = agents.Agent(
-        actor=atr.Policy(
+    # actor_critic = agents.Agent(
+    #     actor=atr.Policy(
+    #         envs.observation_space.shape,
+    #         envs.action_space,
+    #         base_kwargs={'recurrent': args.recurrent_policy}),
+    #     critic=crt.Critic(
+    #         envs.observation_space.shape,
+    #         envs.action_space,
+    #         base_kwargs={'recurrent': args.recurrent_policy}))
+
+
+    base_kwargs = {'recurrent': args.recurrent_policy}
+    num_primitives = 4
+
+    primitives = [atr.Policy(
             envs.observation_space.shape,
             envs.action_space,
-            base_kwargs={'recurrent': args.recurrent_policy}),
+            base_kwargs=base_kwargs) for _  in range(num_primitives)]
+    gating = atr.Gating(
+        envs.observation_space.shape, 
+        num_primitives, 
+        base_kwargs=base_kwargs)
+    actor_critic = agents.Agent(
+        actor=atr.Composite(primitives=primitives, gating=gating),
         critic=crt.Critic(
             envs.observation_space.shape,
             envs.action_space,
-            base_kwargs={'recurrent': args.recurrent_policy}))
+            base_kwargs=base_kwargs))
+
 
     actor_critic.to(device)
 
