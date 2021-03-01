@@ -22,12 +22,12 @@ from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
 
 def add_level(agent, envs, base_kwargs):
-    primitives = agent.actor_critic.actor.primitives
     new_primitives = nn.ModuleList([])
-    for primitive in primitives:
+    for primitive in agent.actor_critic.actor.primitives:
         new_primitives.append(primitive)
     new_primitives.append(agent.actor_critic.actor)
     num_primitives = len(new_primitives)
+
     gating = atr.Gating(
         envs.observation_space.shape, 
         num_primitives, 
@@ -39,6 +39,7 @@ def add_level(agent, envs, base_kwargs):
             envs.observation_space.shape,
             envs.action_space,
             base_kwargs=base_kwargs))
+
     agent.actor_critic = actor_critic
     agent.initialize_optimizer(actor_critic)
     return actor_critic, agent
@@ -68,7 +69,7 @@ def main():
 
     base_kwargs = {'recurrent': args.recurrent_policy}
     num_primitives = 4  # hardcoded
-    abstraction_interval = 2  # hardcoded
+    abstraction_interval = 5  # hardcoded
 
     primitives = nn.ModuleList([atr.Policy(
             envs.observation_space.shape,
