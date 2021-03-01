@@ -29,7 +29,13 @@ class PPO():
         self.max_grad_norm = max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
 
-        self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
+        self.lr = lr
+        self.eps = eps
+
+        self.initialize_optimizer(self.actor_critic)
+
+    def initialize_optimizer(self, network):
+        self.optimizer = optim.Adam(network.parameters(), lr=self.lr, eps=self.eps)
 
     def update(self, rollouts):
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]

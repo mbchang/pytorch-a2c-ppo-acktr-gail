@@ -101,7 +101,7 @@ class Gating(Policy):
         else:
             action = dist.rsample()
 
-        action = F.sigmoid(action)
+        action = torch.sigmoid(action)
 
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()

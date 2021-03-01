@@ -27,7 +27,8 @@ class Agent(nn.Module):
         raise NotImplementedError
 
     def act(self, inputs, rnn_hxs, masks, deterministic=False):
-        action, action_log_probs, rnn_hxs = self.actor.act(inputs, rnn_hxs, masks)
+        # currently just forwarding the hiddens state
+        action, action_log_probs, _ = self.actor.act(inputs, rnn_hxs, masks)
         value = self.get_value(inputs, rnn_hxs, masks)
         return value, action, action_log_probs, rnn_hxs
 

@@ -21,6 +21,28 @@ import a2c_ppo_acktr.agents as agents
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
 
+def add_level(agent, envs, base_kwargs):
+    primitives = agent.actor_critic.actor.primitives
+    new_primitives = nn.ModuleList([])
+    for primitive in primitives:
+        new_primitives.append(primitive)
+    new_primitives.append(agent.actor_critic.actor)
+    num_primitives = len(new_primitives)
+    gating = atr.Gating(
+        envs.observation_space.shape, 
+        num_primitives, 
+        base_kwargs=base_kwargs)
+
+    actor_critic = agents.Agent(
+        actor=atr.Composite(primitives=new_primitives, gating=gating),
+        critic=crt.Critic(
+            envs.observation_space.shape,
+            envs.action_space,
+            base_kwargs=base_kwargs))
+    agent.actor_critic = actor_critic
+    agent.initialize_optimizer(actor_critic)
+    return actor_critic, agent
+
 
 def main():
     args = get_args()
@@ -43,24 +65,15 @@ def main():
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
 
-    # actor_critic = agents.Agent(
-    #     actor=atr.Policy(
-    #         envs.observation_space.shape,
-    #         envs.action_space,
-    #         base_kwargs={'recurrent': args.recurrent_policy}),
-    #     critic=crt.Critic(
-    #         envs.observation_space.shape,
-    #         envs.action_space,
-    #         base_kwargs={'recurrent': args.recurrent_policy}))
-
 
     base_kwargs = {'recurrent': args.recurrent_policy}
-    num_primitives = 4
+    num_primitives = 4  # hardcoded
+    abstraction_interval = 2  # hardcoded
 
-    primitives = [atr.Policy(
+    primitives = nn.ModuleList([atr.Policy(
             envs.observation_space.shape,
             envs.action_space,
-            base_kwargs=base_kwargs) for _  in range(num_primitives)]
+            base_kwargs=base_kwargs) for _  in range(num_primitives)])
     gating = atr.Gating(
         envs.observation_space.shape, 
         num_primitives, 
@@ -71,7 +84,7 @@ def main():
             envs.observation_space.shape,
             envs.action_space,
             base_kwargs=base_kwargs))
-
+    print(actor_critic)
 
     actor_critic.to(device)
 
@@ -220,6 +233,13 @@ def main():
             obs_rms = utils.get_vec_normalize(envs).obs_rms
             evaluate(actor_critic, obs_rms, args.env_name, args.seed,
                      args.num_processes, eval_log_dir, device)
+
+        # abstract
+        if j % abstraction_interval == 0 and j > 0:
+            actor_critic, agent = add_level(agent, envs, base_kwargs)
+            actor_critic.to(device)
+            print('added another level. number of primitives is {}'.format(len(actor_critic.actor.primitives)))
+            # print(actor_critic)
 
 
 if __name__ == "__main__":
