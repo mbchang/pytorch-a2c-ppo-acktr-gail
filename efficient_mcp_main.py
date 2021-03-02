@@ -21,28 +21,42 @@ import a2c_ppo_acktr.agents as agents
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
 
-def add_level(agent, envs, base_kwargs):
-    new_primitives = nn.ModuleList([])
-    for primitive in agent.actor_critic.actor.primitives:
-        new_primitives.append(primitive)
-    new_primitives.append(agent.actor_critic.actor)
-    num_primitives = len(new_primitives)
+torch.autograd.set_detect_anomaly(True)
 
+# def add_level(agent, envs, base_kwargs):
+#     new_primitives = nn.ModuleList([])
+#     for primitive in agent.actor_critic.actor.primitives:
+#         new_primitives.append(primitive)
+#     new_primitives.append(agent.actor_critic.actor)
+#     num_primitives = len(new_primitives)
+
+#     gating = atr.Gating(
+#         envs.observation_space.shape, 
+#         num_primitives, 
+#         base_kwargs=base_kwargs)
+
+#     actor_critic = agents.Agent(
+#         actor=atr.Composite(primitives=new_primitives, gating=gating),
+#         critic=crt.Critic(
+#             envs.observation_space.shape,
+#             envs.action_space,
+#             base_kwargs=base_kwargs))
+
+#     agent.actor_critic = actor_critic
+#     agent.initialize_optimizer(actor_critic)
+#     return actor_critic, agent
+
+
+def add_level(agent, envs, base_kwargs):
+    num_primitives = agent.actor_critic.actor.num_primitives() + 1
     gating = atr.Gating(
         envs.observation_space.shape, 
         num_primitives, 
         base_kwargs=base_kwargs)
+    agent.actor_critic.actor.add_gating(gating)
+    agent.initialize_optimizer(agent.actor_critic)
+    return agent.actor_critic, agent
 
-    actor_critic = agents.Agent(
-        actor=atr.Composite(primitives=new_primitives, gating=gating),
-        critic=crt.Critic(
-            envs.observation_space.shape,
-            envs.action_space,
-            base_kwargs=base_kwargs))
-
-    agent.actor_critic = actor_critic
-    agent.initialize_optimizer(actor_critic)
-    return actor_critic, agent
 
 
 def main():
@@ -80,7 +94,7 @@ def main():
         num_primitives, 
         base_kwargs=base_kwargs)
     actor_critic = agents.Agent(
-        actor=atr.Composite(primitives=primitives, gating=gating),
+        actor=atr.EfficientComposite(primitives=primitives, gating=gating),
         critic=crt.Critic(
             envs.observation_space.shape,
             envs.action_space,
@@ -242,7 +256,7 @@ def main():
             actor_critic.to(device)
             print('added another level. number of primitives is {}'.format(agent.actor_critic.actor.num_primitives()))
             # print(actor_critic)
-
+ 
         print('Time to update: {}'.format(time.time()-before_update))
 
 
