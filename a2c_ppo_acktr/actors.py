@@ -153,48 +153,16 @@ class Composite(Policy):
         dist = FixedNormal(mu, logstd.exp())
         return dist
 
-
-class EfficientComposite(Policy):
+class EfficientComposite(Composite):
     def __init__(self, primitives, gating):
-        nn.Module.__init__(self)
-        self.primitives = primitives
-        self.gating = gating
+        Composite.__init__(self, primitives, gating)
         self.higher_level_gatings = nn.ModuleList([])
-
-    @property
-    def is_recurrent(self):
-        return self.gating.is_recurrent
-
-    @property
-    def recurrent_hidden_state_size(self):
-        """Size of rnn_hx."""
-        return self.gating.recurrent_hidden_state_size
 
     def add_gating(self, gating):
         self.higher_level_gatings.append(gating)
 
     def num_primitives(self):
         return len(self.primitives) + len(self.higher_level_gatings)
-
-    def execute_primitives(self, inputs, rnn_hxs, masks):
-        mus, logstds = zip(*[p.get_dist_params(inputs, rnn_hxs, masks) for p in self.primitives])  # list of length k of (bsize, adim)
-        mus = torch.stack(mus, dim=1)  # (bsize, k, outdim)
-        stds = torch.exp(torch.stack(logstds, dim=1))  # (bsize, k, outdim)
-        return mus, stds
-
-    def compose_mu(self, mus, weights_over_variance, inverse_variance):
-        weighted_mus = weights_over_variance * mus
-        composite_mu = torch.sum(weighted_mus, dim=1)/inverse_variance  # (bsize, zdim)
-        return composite_mu
-
-    def compose_params(self, mus, stds, weights):
-        weights_over_variance = weights/(stds*stds)  # (bsize, k, zdim)
-        inverse_variance = torch.sum(weights_over_variance, dim=1)  # (bsize, zdim)
-        ##############################
-        composite_logstd = -0.5 * torch.log(inverse_variance)
-        ##############################
-        composite_mu = self.compose_mu(mus, weights_over_variance, inverse_variance)  # (bsize, zdim)
-        return composite_mu, composite_logstd
 
     def get_gating(self, inputs, rnn_hxs, masks):
         base_term, _, _ = self.gating.act(inputs, rnn_hxs, masks)  # (bsize, K)
@@ -221,17 +189,4 @@ class EfficientComposite(Policy):
         weights = weights.unsqueeze(-1)  #  (bsize, K, 1)
 
         return weights
-
-
-    def get_dist_params(self, inputs, rnn_hxs, masks):
-        weights = self.get_gating(inputs, rnn_hxs, masks)
-        # TODO:rnn_hxs are not used!
-        mus, stds = self.execute_primitives(inputs, rnn_hxs, masks)
-        composite_mu, composite_logstd = self.compose_params(mus, stds, weights)
-        return composite_mu, composite_logstd
-
-    def get_dist(self, inputs, rnn_hxs, masks):
-        mu, logstd = self.get_dist_params(inputs, rnn_hxs, masks)
-        dist = FixedNormal(mu, logstd.exp())
-        return dist
 
